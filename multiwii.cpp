@@ -1,15 +1,12 @@
 #include "multiwii.h"
-#include <stddef.h>
-#include <stdio.h>
-#include <unistd.h> /*fsync*/
-#include <sys/time.h>
-#include <time.h>
 #include <malloc.h> /* malloc */
-#include <memory.h> /* memcpy, memcmp */
+#include <memory.h> /* memcpy */
 
-#ifndef ARRAYLEN
-# define ARRAYLEN(D) sizeof(D) / sizeof(*D)
-#endif
+/*#include <stddef.h>*/
+/*#include <stdio.h>*/
+/*#include <unistd.h>*/
+/*#include <sys/time.h>*/
+/*#include <time.h>*/
 
 static SERIAL g_hWii = -1;
 static duint8_t g_bufRead[0xff];
@@ -29,9 +26,6 @@ static duint8_t g_state = MWS_IDLE;
 
 #define MWI_MASK        0xff
 
-//
-//
-//
 inline void multiwii_cmd_debug(MultiWiiCommand* mwc)
 {
     printf("(command: %d, len: %d", mwc->id, (mwc->data) ? mwc->size : -1);
@@ -42,8 +36,8 @@ inline void multiwii_cmd_debug(MultiWiiCommand* mwc)
                 printf(" ");
 
             printf("%02x", mwc->data[i] & MWI_MASK);
-        } // for
-    } // if
+        } /*for*/
+    } /*if*/
 
     printf(")\n");
     (void) fflush(stdout);
@@ -117,9 +111,9 @@ inline bool multiwii_packet_check(duint8_t* data, duint16_t len)
         return false;
 
     duint8_t hash = 0;
-    hash ^= data[pos]; // len
+    hash ^= data[pos]; /*len*/
 
-    hash ^= data[pos++]; // cmd
+    hash ^= data[pos++]; /*cmd*/
     for(duint8_t i = 0; i < storedLen; ++i) {
         hash ^= data[pos++];
     } // for
@@ -142,7 +136,7 @@ bool multiwii_read(bool clear = true)
         (void) serial_read(g_hWii, (char*)&buf, sizeof(buf));
 
         g_bufRead[g_bufSize++] = buf;
-    } // while
+    } /*while*/
 
     if(duint8_t(-1) == g_bufSize) {
         g_bufSize = 0;
@@ -175,48 +169,6 @@ bool multiwii_write(duint8_t cmd)
     return true;
 }
 
-void multiwii_debug_read(bool read = true)
-{
-    if(read) {
-        if(!multiwii_read())
-            return;
-    }
-
-    char h0 = read8();
-    char h1 = read8();
-    char io = read8();
-    char len = read8(); (void)len;
-    char cmd = read8();
-
-    // printf("%c%c%c", h0, h1, io);
-    switch(cmd) {
-    case 100: { // IDENT
-        char version = read8();
-        char multiType = read8();
-        char mspVersion = read8(); // not used currently
-        int capability = read32();
-        printf("IDLE(v: 0x%02x, t: 0x%02x, m: 0x%02x, c: 0x%08x)\n",
-               version, multiType, mspVersion, capability);
-    } // case
-        break;
-    case 101:
-    {
-        short cycleTime = read16();
-        short errors = read16();
-        short sensors = read16();
-        int flag = read32();
-        char conf = read8();
-        printf("STATUS(c: 0x%04x, e: 0x%04x, s: 0x%04x, f: 0x%08x, c: 0x%02x\n",
-               cycleTime, errors, sensors, flag, conf);
-    }
-        break;
-    default:
-        printf("(unknown) len: %u\n", (unsigned int)g_bufSize);
-    }
-}
-
-
-
 bool multiwii_exec(MULTIWII_CALLBACK func/* = 0*/)
 {
     (void) func;
@@ -243,7 +195,6 @@ bool multiwii_exec(MULTIWII_CALLBACK func/* = 0*/)
 
         duint8_t buf = 0;
 
-        // printf("(begin read)");
         while(serial_available(g_hWii)) {
             buf = 0;
             if(1 != serial_read(g_hWii, (char*)&buf, sizeof(buf)))
@@ -285,10 +236,10 @@ bool multiwii_exec(MULTIWII_CALLBACK func/* = 0*/)
                     printf("(error)\n");
 
             {
-                /// TODO: process packet
+                /* TODO: process packet */
                 MultiWiiCommand* mwc = multiwii_cmd_init(cmdid, g_bufRead,
                                                          g_bufSize);
-                // multiwii_cmd_debug(mwc);
+                /* multiwii_cmd_debug(mwc); */
                 if(func)
                     (void)func(mwc);
 
@@ -299,19 +250,16 @@ bool multiwii_exec(MULTIWII_CALLBACK func/* = 0*/)
                 g_state = MWS_IDLE;
                 break;
             default:
-                // DEBUGBREAK;
+                /* DEBUGBREAK; */
                 ;
             }
-        } // while read
+        } /* while read */
 
-    } // while events loop
+    } /* while events loop */
 
     return true;
 }
 
-//
-//
-//
 MultiWiiCommand* multiwii_cmd_init(duint8_t cmdid, const duint8_t* data/* = 0*/,
                                    duint8_t len/* = 0*/)
 {
@@ -320,7 +268,6 @@ MultiWiiCommand* multiwii_cmd_init(duint8_t cmdid, const duint8_t* data/* = 0*/,
         return (MultiWiiCommand*)0;
 
     cmd->id = cmdid;
-    // cmd->data = data;
     if(data == 0) {
         cmd->data = 0;
         cmd->size = 0;

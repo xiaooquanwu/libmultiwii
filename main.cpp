@@ -1,13 +1,7 @@
-#include <iostream>
-// #include <unistd.h>
 #include "multiwii.h"
 
-#include <stdio.h>
-#include <time.h>
-
-#include <sys/select.h>
-
-using namespace std;
+#include <stdio.h> /* perror */
+#include <time.h> /* nanosleep */
 
 int main()
 {

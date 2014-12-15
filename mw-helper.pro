@@ -15,7 +15,8 @@ SOURCES += \
 
 HEADERS += \
     serial.h \
-    multiwii.h
+    multiwii.h \
+    dlib.hxx
 
 LIBS += \
     -lpthread

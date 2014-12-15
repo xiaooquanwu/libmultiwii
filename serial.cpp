@@ -1,11 +1,10 @@
 #include "serial.h"
 
-#include <unistd.h>
-#include <fcntl.h>
-#include <termios.h>
-#include <stdio.h>
-#include <errno.h>
-#include <sys/ioctl.h> // ioctl
+#include <unistd.h>     /* io */
+#include <fcntl.h>      /* fd_set */
+#include <termios.h>    /* serial_open */
+#include <stdio.h>      /* perror */
+#include <sys/ioctl.h>  /* ioctl */
 
 STATIC_ASSERT(sizeof(duint8_t) * 8 == 8, UINT);
 STATIC_ASSERT(sizeof(duint16_t) * 8 == 16, UINT);
@@ -118,7 +117,7 @@ SERIAL serial_open(const char* serialport, int baudrate)
     cfsetospeed(&toptions, baudrate);
 
     toptions.c_iflag &= ~(IGNBRK | BRKINT | ICRNL | INLCR | PARMRK | INPCK | ISTRIP | IXON);
-    //toptions.c_oflag = 0;
+    /*toptions.c_oflag = 0;*/
 
     toptions.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN | ISIG);
     toptions.c_cflag &= ~(CSIZE | PARENB);
@@ -129,7 +128,7 @@ SERIAL serial_open(const char* serialport, int baudrate)
     toptions.c_cc[VTIME] = 10;
 
 
-    // apply options
+    /*apply options*/
     if (tcsetattr(fd, TCSAFLUSH, &toptions) < 0) {
         perror("init_serialport: Couldn't set term attributes");
         (void) close(fd);
@@ -138,7 +137,6 @@ SERIAL serial_open(const char* serialport, int baudrate)
 
     return fd;
 }
-// */
 
 void serial_close(SERIAL fd)
 {
@@ -167,9 +165,9 @@ int serial_write(SERIAL fd, const char data)
 
 int serial_read(SERIAL fd, char* buf, unsigned long len)
 {
-    //fcntl(fd, F_SETFL, 0);
+    /*fcntl(fd, F_SETFL, 0);*/
     int ret = read(fd, buf, len);
-    //fcntl(fd, F_SETFL, FNDELAY);
+    /*fcntl(fd, F_SETFL, FNDELAY);*/
 
     return ret;
 }
