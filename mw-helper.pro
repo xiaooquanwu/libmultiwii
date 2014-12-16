@@ -8,18 +8,20 @@ CONFIG -= qt
 #QMAKE_CXXFLAGS += -Wl
 #QMAKE_CXXFLAGS += --no-as-needed
 
+# QMAKE_CFLAGS += -std=c90
+
 SOURCES += \
-     main.cpp \
-    serial.cpp \
-    multiwii.cpp
+     main.c \
+    serial.c \
+    multiwii.c
 
 HEADERS += \
     serial.h \
     multiwii.h \
     dlib.hxx
 
-LIBS += \
-    -lpthread
+# LIBS += \
+#    -lpthread
 
-include(deployment.pri)
-qtcAddDeployment()
+#include(deployment.pri)
+# qtcAddDeployment()

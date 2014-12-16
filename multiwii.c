@@ -2,11 +2,9 @@
 #include <malloc.h> /* malloc */
 #include <memory.h> /* memcpy */
 
-/*#include <stddef.h>*/
-/*#include <stdio.h>*/
-/*#include <unistd.h>*/
-/*#include <sys/time.h>*/
-/*#include <time.h>*/
+#ifdef __cplusplus
+extern "C" {
+#endif /*cpp*/
 
 static SERIAL g_hWii = -1;
 static duint8_t g_bufRead[0xff];
@@ -26,16 +24,20 @@ static duint8_t g_state = MWS_IDLE;
 
 #define MWI_MASK        0xff
 
-inline void multiwii_cmd_debug(MultiWiiCommand* mwc)
+inline void multiwii_cmd_debug(struct MultiWiiCommand* mwc)
 {
+    dint8_t i = 0;
+
     printf("(command: %d, len: %d", mwc->id, (mwc->data) ? mwc->size : -1);
     if(mwc->data) {
         printf(" data:");
-        for(duint8_t i = 0; i < mwc->size; ++i) {
+        while(i < mwc->size) {
             if((i % 2) == 0 && i != 0)
                 printf(" ");
 
             printf("%02x", mwc->data[i] & MWI_MASK);
+
+            ++i;
         } /*for*/
     } /*if*/
 
@@ -76,7 +78,7 @@ inline duint8_t read8()
     return (g_bufRead[g_pos++] & MWI_MASK);
 }
 
-bool multiwii_init(SERIAL fd)
+dbool_t multiwii_init(SERIAL fd)
 {
     return (g_hWii = fd) != -1;
 }
@@ -86,45 +88,52 @@ duint8_t multiwii_state()
     return g_state;
 }
 
-inline bool multiwii_packet_check(duint8_t* data, duint16_t len)
+dbool_t multiwii_ready()
+{
+    return multiwii_state() == MWS_IDLE;
+}
+
+inline dbool_t multiwii_packet_check(duint8_t* data, duint16_t len)
 {
     if(MWI_PACKET_SIZE(0) > len)
-        return false;
+        return False;
 
     duint16_t pos = 0;
 
-    if(data[pos++] != duint8_t('$'))
-        return false;
+    if(data[pos++] != (duint8_t)'$')
+        return False;
 
-    if(data[pos++] != duint8_t('M'))
-        return false;
+    if(data[pos++] != (duint8_t)'M')
+        return False;
 
-    if(data[pos] != duint8_t('|')
-            || data[pos] != duint8_t('<')
-            || data[pos] != duint8_t('>'))
-        return false;
+    if(data[pos] != (duint8_t)'|'
+            || data[pos] != (duint8_t)'<'
+            || data[pos] != (duint8_t)'>')
+        return False;
 
     ++pos;
 
     duint8_t storedLen = data[pos++];
     if(MWI_PACKET_SIZE(storedLen) != len)
-        return false;
+        return False;
 
     duint8_t hash = 0;
     hash ^= data[pos]; /*len*/
 
     hash ^= data[pos++]; /*cmd*/
-    for(duint8_t i = 0; i < storedLen; ++i) {
+    duint8_t i = 0;
+    while(i < storedLen) {
         hash ^= data[pos++];
+        ++i;
     } // for
 
     if(data[pos] != hash)
-        return false;
+        return False;
 
-    return true;
+    return True;
 }
 
-bool multiwii_read(bool clear = true)
+dbool_t multiwii_read(dbool_t clear/* = true*/)
 {
     if(clear)
         clear_bufRead();
@@ -138,43 +147,45 @@ bool multiwii_read(bool clear = true)
         g_bufRead[g_bufSize++] = buf;
     } /*while*/
 
-    if(duint8_t(-1) == g_bufSize) {
+    if((duint8_t)-1 == g_bufSize) {
         g_bufSize = 0;
-        return perror(__PRETTY_FUNCTION__), false;
+        return perror(__PRETTY_FUNCTION__), False;
     } else if(g_bufSize == 0)
-        return false;
+        return False;
     else
         g_bufRead[g_bufSize] = 0;
 
-    return true;
+    return True;
 }
 
-bool multiwii_write(duint8_t /*cmd*/, const duint8_t* /*data*/, duint16_t /*len*/)
+dbool_t multiwii_send(duint8_t cmd, const duint8_t* data, duint16_t len)
 {
-    return false;
+    D_UNUSED(cmd); D_UNUSED(data); D_UNUSED(len);
+
+    return False;
 }
 
-bool multiwii_write(duint8_t cmd)
+dbool_t multiwii_request(duint8_t cmd)
 {
-    if(multiwii_ready())
-        return false;
+    if(!multiwii_ready())
+        return False;
 
-    (void) serial_write(g_hWii, '$');
-    serial_write(g_hWii, 'M');
-    serial_write(g_hWii, '<');
-    serial_write(g_hWii, 0);
-    serial_write(g_hWii, cmd);
-    serial_write(g_hWii, cmd);
+    (void) serial_write_byte(g_hWii, '$');
+    serial_write_byte(g_hWii, 'M');
+    serial_write_byte(g_hWii, '<');
+    serial_write_byte(g_hWii, 0);
+    serial_write_byte(g_hWii, cmd);
+    serial_write_byte(g_hWii, cmd);
 
-    return true;
+    return True;
 }
 
-bool multiwii_exec(MULTIWII_CALLBACK func/* = 0*/)
+dbool_t multiwii_exec(MULTIWII_CALLBACK func/* = 0*/)
 {
     (void) func;
 
     if(g_hWii == -1)
-        return false;
+        return False;
 
     duint8_t hash = 0;
     duint8_t cmdlen = 0;
@@ -184,8 +195,9 @@ bool multiwii_exec(MULTIWII_CALLBACK func/* = 0*/)
     printf("Hello, World!");
     while(1) {
         if(g_state == MWS_IDLE)
-            multiwii_write(115);
-        if(!serial_available(g_hWii, 5000)) {
+            multiwii_request(115);
+
+        if(!serial_available_for(g_hWii, 5000)) {
             // do error
             continue;
         }
@@ -237,9 +249,12 @@ bool multiwii_exec(MULTIWII_CALLBACK func/* = 0*/)
 
             {
                 /* TODO: process packet */
-                MultiWiiCommand* mwc = multiwii_cmd_init(cmdid, g_bufRead,
-                                                         g_bufSize);
-                /* multiwii_cmd_debug(mwc); */
+                struct MultiWiiCommand* mwc = multiwii_cmd_init(cmdid,
+                                                                g_bufRead,
+                                                                g_bufSize);
+                /**/
+                multiwii_cmd_debug(mwc);
+                /**/
                 if(func)
                     (void)func(mwc);
 
@@ -257,15 +272,16 @@ bool multiwii_exec(MULTIWII_CALLBACK func/* = 0*/)
 
     } /* while events loop */
 
-    return true;
+    return True;
 }
 
-MultiWiiCommand* multiwii_cmd_init(duint8_t cmdid, const duint8_t* data/* = 0*/,
-                                   duint8_t len/* = 0*/)
+struct MultiWiiCommand* multiwii_cmd_init(duint8_t cmdid,
+                                          const duint8_t* data/* = 0*/,
+                                          duint8_t len/* = 0*/)
 {
-    MultiWiiCommand* cmd = (MultiWiiCommand*)malloc(sizeof(MultiWiiCommand));
+    struct MultiWiiCommand* cmd = (struct MultiWiiCommand*)malloc(sizeof(struct MultiWiiCommand));
     if(cmd == 0)
-        return (MultiWiiCommand*)0;
+        return (struct MultiWiiCommand*)0;
 
     cmd->id = cmdid;
     if(data == 0) {
@@ -274,19 +290,19 @@ MultiWiiCommand* multiwii_cmd_init(duint8_t cmdid, const duint8_t* data/* = 0*/,
     } else {
         cmd->data = (duint8_t*)malloc(sizeof(duint8_t) * len);
         if(cmd->data == 0)
-            return (void)free((void*)cmd), (MultiWiiCommand*)0;
+            return (void)free((void*)cmd), (struct MultiWiiCommand*)0;
 
         cmd->size = len;
         (void)memcpy(cmd->data, data, len);
     }
 
-    cmd->is_filled = true;
+    cmd->is_filled = True;
     cmd->pos = 0;
 
     return cmd;
 }
 
-void multiwii_cmd_free(MultiWiiCommand* mwc)
+void multiwii_cmd_free(struct MultiWiiCommand* mwc)
 {
     if(mwc->data)
         (void)free(mwc->data), mwc->data = 0;
@@ -294,12 +310,12 @@ void multiwii_cmd_free(MultiWiiCommand* mwc)
     (void) free((void*)mwc);
 }
 
-duint8_t multiwii_cmd_read8(MultiWiiCommand* mwc)
+duint8_t multiwii_cmd_read8(struct MultiWiiCommand* mwc)
 {
     return (mwc->data[mwc->pos++] & MWI_MASK);
 }
 
-duint16_t multiwii_cmd_read16(MultiWiiCommand* mwc)
+duint16_t multiwii_cmd_read16(struct MultiWiiCommand* mwc)
 {
     duint16_t t = mwc->data[mwc->pos++] & MWI_MASK;
     t += mwc->data[mwc->pos++] << 8;
@@ -307,7 +323,7 @@ duint16_t multiwii_cmd_read16(MultiWiiCommand* mwc)
     return t;
 }
 
-duint32_t multiwii_cmd_read32(MultiWiiCommand* mwc)
+duint32_t multiwii_cmd_read32(struct MultiWiiCommand* mwc)
 {
     duint32_t t = mwc->data[mwc->pos++] & MWI_MASK;
     t += (mwc->data[mwc->pos++] & MWI_MASK) << 8;
@@ -316,3 +332,7 @@ duint32_t multiwii_cmd_read32(MultiWiiCommand* mwc)
 
     return t;
 }
+
+#ifdef __cplusplus
+} /* extern C */
+#endif /*cpp*/

@@ -5,11 +5,17 @@
 #include <termios.h>    /* serial_open */
 #include <stdio.h>      /* perror */
 #include <sys/ioctl.h>  /* ioctl */
+#include <sys/select.h>     /* select */
 
 STATIC_ASSERT(sizeof(duint8_t) * 8 == 8, UINT);
 STATIC_ASSERT(sizeof(duint16_t) * 8 == 16, UINT);
 STATIC_ASSERT(sizeof(duint32_t) * 8 == 32, UINT);
 STATIC_ASSERT(sizeof(duint64_t) * 8 == 64, UINT);
+
+#ifdef __cplusplus
+extern "C" {
+#endif /*cpp*/
+
 
 SERIAL serial_open(const char* serialport, int baudrate)
 /*
@@ -155,7 +161,7 @@ int serial_write(SERIAL fd, const char* data, unsigned long len)
 }
 
 
-int serial_write(SERIAL fd, const char data)
+int serial_write_byte(SERIAL fd, const char data)
 {
     int n = write(fd, &data, 1);
     (void) tcdrain(fd);
@@ -180,7 +186,7 @@ int serial_available(SERIAL fd)
     return nbytes;
 }
 
-bool serial_available(SERIAL port, int microseconds)
+dbool_t serial_available_for(SERIAL port, int microseconds)
 {
     fd_set fdset;
     fd_set* input = &fdset;
@@ -195,15 +201,18 @@ bool serial_available(SERIAL port, int microseconds)
     int n = select(port + 1, input, NULL, NULL, &timeout);
 
     if (n < 0) {
-        perror("select failed");
-        return false;
+        return perror("select failed"), False;
     } else if (n == 0) {
         // timeout
-        return false;
+        return False;
     } else {
         if (!FD_ISSET(port, input))
-            return false;
+            return False;
 
-        return true;
+        return True;
     }
 }
+
+#ifdef __cplusplus
+} /* extern C */
+#endif /*cpp*/

@@ -5,16 +5,17 @@
 
 int main()
 {
-    SERIAL s = serial_open("/dev/ttyUSB0", SERIAL_115200_BAUDRATE);
+    SERIAL s;
+
+    s = serial_open("/dev/ttyUSB0", SERIAL_115200_BAUDRATE);
 
     if(s == -1)
         return perror("serial_open"), 1;
-
-    {
-        timespec t; t.tv_sec = 2; t.tv_nsec=0;
-        (void) nanosleep(&t, NULL);
-    }
-
+/*
+    struct timespec t;
+    t.tv_sec = 2; t.tv_nsec=0;
+    (void) nanosleep(&t, NULL);
+*/
     if(!multiwii_init(s))
         return perror("multiwii_init"), 1;
 

@@ -3,6 +3,10 @@
 
 #include "dlib.hxx"
 
+#ifdef __cplusplus
+extern "C" {
+#endif /*cpp*/
+
 typedef int SERIAL;
 
 #define SERIAL_9600_BAUDRATE    9600
@@ -15,9 +19,13 @@ SERIAL serial_open(const char* dev, int baudrate);
 void   serial_close(SERIAL);
 
 int serial_write(SERIAL port, const char* data, unsigned long size);
-int serial_write(SERIAL port, const char data);
+int serial_write_byte(SERIAL port, const char data);
 int serial_read(SERIAL port, char* buf, unsigned long len);
 int serial_available(SERIAL port);
-bool serial_available(SERIAL port, int microseconds);
+dbool_t serial_available_for(SERIAL port, int microseconds);
+
+#ifdef __cplusplus
+} /* extern C */
+#endif /*cpp*/
 
 #endif /* SERIAL_H */

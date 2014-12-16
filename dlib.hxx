@@ -90,7 +90,10 @@
 # define ARRAYLEN(D) sizeof(D) / sizeof(*D)
 #endif /* ARRAYLEN */
 
-// TODO: GCC check
+#define D_UNUSED(X) (void)X
+
+/* TODO: GCC check */
+
 typedef unsigned char       duint8_t;
 typedef unsigned short      duint16_t;
 typedef unsigned int        duint32_t;
@@ -100,5 +103,10 @@ typedef signed char         dint8_t;
 typedef signed short        dint16_t;
 typedef signed int          dint32_t;
 typedef signed long long    dint64_t;
+
+typedef dint8_t             dbool_t;
+
+#define True  (1 == 1)
+#define False (1 != 1)
 
 #endif /* DLIB_FILE_H */

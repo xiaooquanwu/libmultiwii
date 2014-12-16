@@ -1,6 +1,10 @@
 #ifndef MULTIWII_H
 #define MULTIWII_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif /*cpp*/
+
 #include "serial.h"
 
 #define MWS_IDLE        0
@@ -20,34 +24,34 @@ struct MultiWiiCommand {
     duint8_t pos;       /* readed data */
 };
 
-typedef int (*MULTIWII_CALLBACK)(MultiWiiCommand*);
+typedef int (*MULTIWII_CALLBACK)(struct MultiWiiCommand*);
 
-bool multiwii_init(SERIAL);
+dbool_t multiwii_init(SERIAL);
 
 duint8_t multiwii_state();
 
-inline bool multiwii_ready()
-{ return multiwii_state() == MWS_IDLE; }
+dbool_t multiwii_ready();
 
-bool multiwii_read(bool clear);
+dbool_t multiwii_read(dbool_t clear);
 
-bool multiwii_write(char cmd, const duint8_t* data, duint16_t len);
+dbool_t multiwii_send(duint8_t cmd, const duint8_t* data, duint16_t len);
 
-bool multiwii_write(duint8_t cmd);
+dbool_t multiwii_request(duint8_t cmd);
 
-void multiwii_debug_read(bool read);
+void multiwii_debug_read(dbool_t read);
 
-bool multiwii_exec(MULTIWII_CALLBACK func = 0);
+dbool_t multiwii_exec(MULTIWII_CALLBACK func/* = 0*/);
 
-//
-//
-//
-MultiWiiCommand* multiwii_cmd_init(duint8_t cmd, const duint8_t* data = 0,
-                                   duint8_t len = 0);
+struct MultiWiiCommand* multiwii_cmd_init(duint8_t cmd, const duint8_t* data/* = 0*/,
+                                          duint8_t len/* = 0*/);
 
-void multiwii_cmd_free(MultiWiiCommand*);
-duint8_t multiwii_cmd_read8(MultiWiiCommand*);
-duint16_t multiwii_cmd_read16(MultiWiiCommand*);
-duint32_t multiwii_cmd_read32(MultiWiiCommand*);
+void multiwii_cmd_free(struct MultiWiiCommand*);
+duint8_t multiwii_cmd_read8(struct MultiWiiCommand*);
+duint16_t multiwii_cmd_read16(struct MultiWiiCommand*);
+duint32_t multiwii_cmd_read32(struct MultiWiiCommand*);
+
+#ifdef __cplusplus
+} /* extern C */
+#endif /*cpp*/
 
 #endif // MULTIWII_H
