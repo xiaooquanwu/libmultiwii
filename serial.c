@@ -16,90 +16,18 @@ STATIC_ASSERT(sizeof(duint64_t) * 8 == 64, UINT);
 extern "C" {
 #endif /*cpp*/
 
-
 SERIAL serial_open(const char* serialport, int baudrate)
-/*
-{
-    struct termios toptions;
-    int fd;
-    fd = open(serialport, O_RDWR | O_NOCTTY);
-    if (fd == -1) {
-        perror("init_serialport: Unable to open port ");
-        return -1;
-    }
-
-    if (tcgetattr(fd, &toptions) < 0) {
-        perror("init_serialport: Couldn't get term attributes");
-        return -1;
-    }
-
-    speed_t brate = baudrate; // let you override switch below if needed
-    switch (baudrate) {
-    case 4800:
-        brate = B4800;
-        break;
-    case 9600:
-        brate = B9600;
-        break;
-    case 19200:
-        brate = B19200;
-        break;
-    case 38400:
-        brate = B38400;
-        break;
-    case 57600:
-        brate = B57600;
-        break;
-    case 115200:
-        brate = B115200;
-        break;
-    case 460800:
-        brate = B460800;
-        break;
-    }
-
-    cfsetispeed(&toptions, brate);
-    cfsetospeed(&toptions, brate);
-
-    toptions.c_cflag &= ~PARENB;
-    toptions.c_cflag &= ~CSTOPB;
-    toptions.c_cflag &= ~CSIZE;
-    toptions.c_cflag |= CS8;
-
-    // no flow control
-    toptions.c_cflag &= ~CRTSCTS;
-    toptions.c_cflag |= CREAD | CLOCAL;  // turn on READ & ignore ctrl lines
-    toptions.c_iflag &= ~(IXON | IXOFF | IXANY); // turn off s/w flow ctrl
-    toptions.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG); // make raw
-    toptions.c_oflag &= ~OPOST; // make raw
-
-    // see: http://unixwiz.net/techtips/termios-vmin-vtime.html
-    toptions.c_cc[VMIN] = 1;
-    toptions.c_cc[VTIME] = 10;
-    if (tcsetattr(fd, TCSANOW, &toptions) < 0) {
-        perror("init_serialport: Couldn't set term attributes");
-        return -1;
-    }
-
-    return fd;
-}
-*/
 {
     SERIAL fd;
     struct termios toptions;
 
     fd = open(serialport, O_RDWR | O_NOCTTY | O_NDELAY);
 
-    if (fd == -1) {
-        perror("init_serialport: Unable to open port ");
-        return -1;
-    }
+    if (fd == -1)
+        goto cleanup;
 
-    if (tcgetattr(fd, &toptions) < 0) {
-        perror("init_serialport: Couldn't get term attributes");
-        (void) close(fd);
-        return -1;
-    }
+    if (CHK_IO_FAILED(tcgetattr(fd, &toptions)))
+        goto cleanup;
 
     switch (baudrate) {
     case SERIAL_9600_BAUDRATE:
@@ -119,8 +47,11 @@ SERIAL serial_open(const char* serialport, int baudrate)
         baudrate = B115200;
         break;
     }
-    cfsetispeed(&toptions, baudrate);
-    cfsetospeed(&toptions, baudrate);
+
+    if(CHK_IO_FAILED(cfsetispeed(&toptions, baudrate)))
+        goto cleanup;
+    if(CHK_IO_FAILED(cfsetospeed(&toptions, baudrate)))
+        goto cleanup;
 
     toptions.c_iflag &= ~(IGNBRK | BRKINT | ICRNL | INLCR | PARMRK | INPCK | ISTRIP | IXON);
     /*toptions.c_oflag = 0;*/
@@ -135,13 +66,15 @@ SERIAL serial_open(const char* serialport, int baudrate)
 
 
     /*apply options*/
-    if (tcsetattr(fd, TCSAFLUSH, &toptions) < 0) {
-        perror("init_serialport: Couldn't set term attributes");
-        (void) close(fd);
-        return -1;
-    }
+    if (CHK_IO_FAILED(tcsetattr(fd, TCSAFLUSH, &toptions)))
+        goto cleanup;
 
     return fd;
+
+cleanup:
+    perror("serial_open");
+    (void) close(fd);
+    return -1;
 }
 
 void serial_close(SERIAL fd)
@@ -149,44 +82,48 @@ void serial_close(SERIAL fd)
     return (void) close(fd);
 }
 
-int serial_write(SERIAL fd, const char* data, unsigned long len)
+diostatus_t serial_write(SERIAL fd, const char* data, unsigned long len)
 {
-    int n = write(fd, data, len);
-    (void) tcdrain(fd);
+    diostatus_t n = write(fd, data, len);
+    if(CHK_IO_FAILED(n))
+        return -1;
 
-    if (n != (int)len)
+    if(CHK_IO_FAILED(tcdrain(fd)))
+        return -1;
+
+    if (n != (diostatus_t)len)
         return -1;
 
     return n;
 }
 
-
-int serial_write_byte(SERIAL fd, const char data)
+diostatus_t serial_write_byte(SERIAL fd, const char data)
 {
-    int n = write(fd, &data, 1);
-    (void) tcdrain(fd);
+    diostatus_t n = write(fd, &data, 1);
+    if(CHK_IO_FAILED(n))
+        return -1;
 
-    return n;
+    if(CHK_IO_FAILED(tcdrain(fd)))
+        return -1;
+
+    return (diostatus_t)(n == 1);
 }
 
-int serial_read(SERIAL fd, char* buf, unsigned long len)
+diostatus_t serial_read(SERIAL fd, char* buf, unsigned long len)
 {
-    /*fcntl(fd, F_SETFL, 0);*/
-    int ret = read(fd, buf, len);
-    /*fcntl(fd, F_SETFL, FNDELAY);*/
-
-    return ret;
+    return (diostatus_t)read(fd, buf, len);
 }
 
-int serial_available(SERIAL fd)
+diostatus_t serial_available(SERIAL fd)
 {
-    int nbytes = 0;
-    (void) ioctl(fd, FIONREAD, &nbytes);
+    unsigned long int nbytes = 0;
+    if(-1 == ioctl(fd, FIONREAD, &nbytes))
+        return -1;
 
     return nbytes;
 }
 
-dbool_t serial_available_for(SERIAL port, int microseconds)
+diostatus_t serial_available_for(SERIAL port, int microseconds)
 {
     fd_set fdset;
     fd_set* input = &fdset;
@@ -198,18 +135,18 @@ dbool_t serial_available_for(SERIAL port, int microseconds)
     timeout.tv_sec  = (microseconds - (microseconds % 1000)) / 1000;
     timeout.tv_usec = microseconds % 1000;
 
-    int n = select(port + 1, input, NULL, NULL, &timeout);
+    diostatus_t n = select(port + 1, input, NULL, NULL, &timeout);
 
-    if (n < 0) {
-        return perror("select failed"), False;
-    } else if (n == 0) {
-        // timeout
-        return False;
+    if (CHK_IO_FAILED(n)) {
+        return perror("select failed"), n;
+    } else if (CHK_IO_TIMEOUT(n)) {
+        /* timeout */
+        return n;
     } else {
         if (!FD_ISSET(port, input))
-            return False;
+            return 0;
 
-        return True;
+        return n;
     }
 }
 

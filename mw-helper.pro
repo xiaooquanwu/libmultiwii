@@ -8,7 +8,7 @@ CONFIG -= qt
 #QMAKE_CXXFLAGS += -Wl
 #QMAKE_CXXFLAGS += --no-as-needed
 
-# QMAKE_CFLAGS += -std=c90
+QMAKE_CFLAGS += -std=c89
 
 SOURCES += \
      main.c \

@@ -10,7 +10,7 @@ static SERIAL g_hWii = -1;
 static duint8_t g_bufRead[0xff];
 static duint8_t g_bufSize = 0;
 static duint8_t g_pos = 0;
-static duint8_t g_state = MWS_IDLE;
+static enum MultiWiiState g_state = MWS_IDLE;
 
 #define MWI_POS_HEAD1   0
 #define MWI_POS_HEAD2   1
@@ -24,7 +24,7 @@ static duint8_t g_state = MWS_IDLE;
 
 #define MWI_MASK        0xff
 
-inline void multiwii_cmd_debug(struct MultiWiiCommand* mwc)
+/*inline*/ void multiwii_cmd_debug(struct MultiWiiCommand* mwc)
 {
     dint8_t i = 0;
 
@@ -45,37 +45,9 @@ inline void multiwii_cmd_debug(struct MultiWiiCommand* mwc)
     (void) fflush(stdout);
 }
 
-inline void clear_bufRead()
+/*inline*/ void clear_bufRead()
 {
     *g_bufRead = g_bufSize = g_pos = 0;
-}
-
-inline void create_head(char* buf, char io)
-{
-    buf[MWI_POS_HEAD1] = '$';
-    buf[MWI_POS_HEAD2] = 'M';
-    buf[MWI_POS_IO] = (io == 'i') ? '<' : ((io == 'o') ? '>' : '|');
-}
-
-inline duint32_t read32()
-{
-    duint32_t t = g_bufRead[g_pos++] & MWI_MASK;
-    t += (g_bufRead[g_pos++] & MWI_MASK) << 8;
-    t += (g_bufRead[g_pos++] & MWI_MASK) << 16;
-    t += (g_bufRead[g_pos++] & MWI_MASK) << 24;
-    return t;
-}
-
-inline duint16_t read16()
-{
-    duint16_t t = g_bufRead[g_pos++] & MWI_MASK;
-    t += g_bufRead[g_pos++] << 8;
-    return t;
-}
-
-inline duint8_t read8()
-{
-    return (g_bufRead[g_pos++] & MWI_MASK);
 }
 
 dbool_t multiwii_init(SERIAL fd)
@@ -83,7 +55,7 @@ dbool_t multiwii_init(SERIAL fd)
     return (g_hWii = fd) != -1;
 }
 
-duint8_t multiwii_state()
+enum MultiWiiState multiwii_state()
 {
     return g_state;
 }
@@ -93,7 +65,7 @@ dbool_t multiwii_ready()
     return multiwii_state() == MWS_IDLE;
 }
 
-inline dbool_t multiwii_packet_check(duint8_t* data, duint16_t len)
+/*inline*/ dbool_t multiwii_packet_check(duint8_t* data, duint16_t len)
 {
     if(MWI_PACKET_SIZE(0) > len)
         return False;
@@ -125,7 +97,7 @@ inline dbool_t multiwii_packet_check(duint8_t* data, duint16_t len)
     while(i < storedLen) {
         hash ^= data[pos++];
         ++i;
-    } // for
+    } /*while*/
 
     if(data[pos] != hash)
         return False;
@@ -133,7 +105,7 @@ inline dbool_t multiwii_packet_check(duint8_t* data, duint16_t len)
     return True;
 }
 
-dbool_t multiwii_read(dbool_t clear/* = true*/)
+diostatus_t multiwii_read(dbool_t clear/* = true*/)
 {
     if(clear)
         clear_bufRead();
@@ -142,42 +114,46 @@ dbool_t multiwii_read(dbool_t clear/* = true*/)
 
     while(serial_available(g_hWii)) {
         buf = 0;
-        (void) serial_read(g_hWii, (char*)&buf, sizeof(buf));
+        if(!CHK_IO_SUCCESS(serial_read(g_hWii, (char*)&buf, sizeof(buf))))
+            return -1;
 
         g_bufRead[g_bufSize++] = buf;
     } /*while*/
 
-    if((duint8_t)-1 == g_bufSize) {
+    if((duint8_t)-1 == (duint8_t)g_bufSize) {
+        /*FIXME*/
         g_bufSize = 0;
-        return perror(__PRETTY_FUNCTION__), False;
+        return perror(__PRETTY_FUNCTION__), -1;
     } else if(g_bufSize == 0)
-        return False;
+        return D_IO_EMPTY;
     else
         g_bufRead[g_bufSize] = 0;
 
-    return True;
+    return g_bufSize;
 }
 
-dbool_t multiwii_send(duint8_t cmd, const duint8_t* data, duint16_t len)
+diostatus_t multiwii_send(duint8_t cmd, const duint8_t* data, duint16_t len)
 {
     D_UNUSED(cmd); D_UNUSED(data); D_UNUSED(len);
 
-    return False;
+    return D_IO_EMPTY;
 }
 
-dbool_t multiwii_request(duint8_t cmd)
+diostatus_t multiwii_request(duint8_t cmd)
 {
     if(!multiwii_ready())
-        return False;
+        return D_IO_EMPTY;
 
-    (void) serial_write_byte(g_hWii, '$');
-    serial_write_byte(g_hWii, 'M');
-    serial_write_byte(g_hWii, '<');
-    serial_write_byte(g_hWii, 0);
-    serial_write_byte(g_hWii, cmd);
-    serial_write_byte(g_hWii, cmd);
+    if(CHK_IO_SUCCESS(serial_write_byte(g_hWii, '$'))
+            && CHK_IO_SUCCESS(serial_write_byte(g_hWii, 'M'))
+            && CHK_IO_SUCCESS(serial_write_byte(g_hWii, '<'))
+            && CHK_IO_SUCCESS(serial_write_byte(g_hWii, 0))
+            && CHK_IO_SUCCESS(serial_write_byte(g_hWii, cmd))
+            && CHK_IO_SUCCESS(serial_write_byte(g_hWii, cmd)))
+        return 6;
 
-    return True;
+    /* FIXME: set correct errno */
+    return -1;
 }
 
 dbool_t multiwii_exec(MULTIWII_CALLBACK func/* = 0*/)
@@ -192,13 +168,14 @@ dbool_t multiwii_exec(MULTIWII_CALLBACK func/* = 0*/)
     duint8_t cmdreaded = 0;
     duint8_t cmdid = 0;
 
-    printf("Hello, World!");
     while(1) {
+/**/
         if(g_state == MWS_IDLE)
-            multiwii_request(115);
+            (void) multiwii_request(115);
+/**/
 
-        if(!serial_available_for(g_hWii, 5000)) {
-            // do error
+        if(!CHK_IO_SUCCESS(serial_available_for(g_hWii, 5000))) {
+            /* do error */
             continue;
         }
 
@@ -207,13 +184,14 @@ dbool_t multiwii_exec(MULTIWII_CALLBACK func/* = 0*/)
 
         duint8_t buf = 0;
 
-        while(serial_available(g_hWii)) {
+        while(CHK_IO_SUCCESS(serial_available(g_hWii))) {
             buf = 0;
-            if(1 != serial_read(g_hWii, (char*)&buf, sizeof(buf)))
+            if(!CHK_IO_SUCCESS(serial_read(g_hWii, (char*)&buf, sizeof(buf))))
                 continue;
 
             switch(g_state) {
             case MWS_IDLE:
+            case MWS_WAIT_NEXT:
                 hash = cmdlen = cmdid = cmdreaded = 0;
                 if (buf == '$')
                     g_state = MWS_HEAD_START;
@@ -247,11 +225,14 @@ dbool_t multiwii_exec(MULTIWII_CALLBACK func/* = 0*/)
                 if(buf != hash)
                     printf("(error)\n");
 
+                g_state = CHK_IO_SUCCESS(serial_available(g_hWii)) ? MWS_WAIT_NEXT: MWS_IDLE;
             {
                 /* TODO: process packet */
                 struct MultiWiiCommand* mwc = multiwii_cmd_init(cmdid,
                                                                 g_bufRead,
                                                                 g_bufSize);
+                /*TODO: die_mem*/
+
                 /**/
                 multiwii_cmd_debug(mwc);
                 /**/
@@ -261,8 +242,7 @@ dbool_t multiwii_exec(MULTIWII_CALLBACK func/* = 0*/)
                 multiwii_cmd_free(mwc);
             }
 
-                // done
-                g_state = MWS_IDLE;
+                /* done */
                 break;
             default:
                 /* DEBUGBREAK; */
