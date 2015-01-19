@@ -1,3 +1,5 @@
+*.user
+
 # Object files
 *.o
 *.ko

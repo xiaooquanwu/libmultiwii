@@ -19,7 +19,7 @@ int main()
     if(!multiwii_init(s))
         return perror("multiwii_init"), 1;
 
-    if(!multiwii_exec(NULL))
+    if(!multiwii_exec(NULL, NULL, False))
         printf("error\n");
 
     serial_close(s);

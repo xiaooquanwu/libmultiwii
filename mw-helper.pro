@@ -10,15 +10,17 @@ CONFIG -= qt
 
 QMAKE_CFLAGS += -std=c89
 
+INCLUDEPATH += ./include/
+
 SOURCES += \
-     main.c \
-    serial.c \
-    multiwii.c
+    test/00init/main.c \
+    src/serial.c \
+    src/multiwii.c
 
 HEADERS += \
-    serial.h \
-    multiwii.h \
-    dlib.hxx
+    include/serial.h \
+    include/multiwii.h \
+    include/dlib.hxx
 
 # LIBS += \
 #    -lpthread
